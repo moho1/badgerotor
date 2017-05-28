@@ -29,3 +29,7 @@ der Unterschied sehr gut sichtbar. Falls jemand eine Idee für eine Lösung
 dieses Problems hat wäre das toll, ansonsten hilft es auch so genau zu zielen,
 dass die LEDs aus gehen ;).
 
+Zu beachten ist, dass gpredict es überhaupt nicht mag, wenn die TCP-Verbindung
+zum Rotor kaputt geht. Vor dem Abschalten des Badges oder dem Ändern des Wlans
+am Laptop also immer erst den Rotor in gpredict disengagen.
+
