@@ -8,21 +8,22 @@ Antennenrotor anzusprechen.
 
 Das Badge wird dafür an der Antenne befestigt (Klebeband funktioniert, ggf.
 geht Lego + Heißkleber auch gut, in Zukunft werde ich ich (oder Du?) mal was
-mit 3D Druck dafür basteln). Nach dem Starten des Rom baut das Badge selber
-ein Wlan auf, in das man mit dem Laptop mit rein geht. Darin kann es auf
-168.168.4.1:4533 über das Hamlib Rotor Protokoll angesprochen werden. Als
+mit 3D Druck dafür basteln). Nach dem Starten des Rom baut das Badge ein WLAN
+auf oder verbindet sich zu einem WLAN. Darin kann es auf
+Port 4533 über das Hamlib Rotor Protokoll angesprochen werden. Als
 Software auf dem Laptop bietet sich z.B.
 [gpredict](http://gpredict.oz9aec.net/) an.
 
-Das Passwort für das aufgebaute Wlan rotor-moho ist aktuell noch moho-rotor,
-dies kann entweder jeder selber im Code anpassen oder in Zukunft wird es bald
-Custom Wlans pro Badge geben. Z.B. könnte man automatisch das Config-Wlan
-nutzen.
+Falls beim Starten der Joystick betätigt wird verbindet sich das Badge zum
+Configwlan, ansonsten baut es selber das WLAN badge-rotor auf.
 
 Mit den Leds wird intuitiv angezeigt, in welche Richtung das Badge / die
 Antenne bewegt werden müssen, um die von der Steuerung angegebene Richtung
 zu erreichen. Je heller die LEDs leuchten, desto größer ist die Abweichung.
 Die aktuelle Position wird auch an die Steuerung zurückgemeldet.
+
+Auf dem Display wird eine Polardarstellung des aktuellen und der gewünschten
+Winkels angezeigt.
 
 Leider stört die Ansteuerung der LEDs relativ stark auf 70cm, in einem SDR ist
 der Unterschied sehr gut sichtbar. Falls jemand eine Idee für eine Lösung
