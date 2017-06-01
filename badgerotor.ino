@@ -100,7 +100,7 @@ void loop() {
   
   //// convert polar to cartesian
   // invert and scale elevation
-  // rotate azimuth to correct angle
+  // convert azimuth deg to rad and rotate to correct angle
   // set offset to center of the circles
   float x_sensor = ( ((90-elevation) / 90 * 60 ) * cos((azimuth*PI/180)-HALF_PI) ) + 63;
   float y_sensor = ( ((90-elevation) / 90 * 60 ) * sin((azimuth*PI/180)-HALF_PI) ) + 63;
