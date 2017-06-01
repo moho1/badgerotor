@@ -1,21 +1,34 @@
 #include <GPNBadge.hpp>
 #include <Adafruit_BNO055.h>
 #include <Adafruit_NeoPixel.h>
-
 #include <ESP8266WiFi.h>
-
+#include "url-encode.h"
 #include "rboot.h"
 #include "rboot-api.h"
+#include "math.h"
 #include <FS.h>
 
 #include <stdio.h>
 
 #define BNO055_SAMPLERATE_DELAY_MS (100)
 
+#define UP      797
+#define DOWN    639
+#define RIGHT   536
+#define LEFT    1024
+#define OFFSET  40
+
+#define BLACK   0x0000
+#define BLUE    0x001F
+#define RED     0xF800
+#define GREEN   0x07E0
+#define CYAN    0x07FF
+#define MAGENTA 0xF81F
+#define YELLOW  0xFFE0
+#define WHITE   0xFFFF
+
 Badge badge;
 
-const char* ssid = "rotor-moho";
-const char* password = "moho-rotor";
 WiFiServer server(4533);  //set up server
 WiFiClient client;
 
@@ -33,13 +46,13 @@ void setup() {
   tft.setTextColor(WHITE);
   tft.setFont();
   tft.fillScreen(BLACK);
+  SPIFFS.begin();
   connectBadge();
   
   bno.begin();
   delay(300);
   
   rboot_config rboot_config = rboot_get_config();
-  SPIFFS.begin();
   File f = SPIFFS.open("/rom"+String(rboot_config.current_rom),"w");
   f.println("Rotor\n");
   f.close();
@@ -58,24 +71,52 @@ void loop() {
   }
   elevation = euler.z();
 
-  tft.fillRect(0, 0, 128, 50, BLACK);
-  tft.setCursor(2,2);
-  tft.print("Azimuth: ");
-  tft.print(azimuth);
-  tft.setCursor(2,12);
-  tft.print("Elevation: ");
-  tft.print(elevation);
-
   float azdiff = azimuth_want - azimuth;
   float eldiff = elevation_want - elevation;
-  tft.setCursor(2,22);
-  tft.print("AZdiff: ");
-  tft.print(azdiff);
-  tft.setCursor(2,32);
-  tft.print("ELdiff: ");
-  tft.print(eldiff);
-  tft.writeFramebuffer();
 
+  tft.fillScreen(BLACK);
+  
+/*
+  tft.fillRect(0, 0, 128, 100, BLACK);
+  tft.setCursor(0,0);
+  
+  tft.print("AZ badge: ");
+  tft.println(azimuth);
+  tft.print("EL badge: ");
+  tft.println(elevation);
+  tft.println("");
+  
+  tft.print("AZ diff: ");
+  tft.println(azdiff);
+  tft.print("EL diff: ");
+  tft.println(eldiff);
+  tft.println("");
+  
+  tft.print("AZ sat: ");
+  tft.println(azimuth_want);
+  tft.print("EL sat: ");
+  tft.println(elevation_want);
+*/
+  
+  //// convert polar to cartesian
+  // invert and scale elevation
+  // rotate azimuth to correct angle
+  // set offset to center of the circles
+  float x_sensor = ( ((90-elevation) / 90 * 60 ) * cos((azimuth*PI/180)-HALF_PI) ) + 63;
+  float y_sensor = ( ((90-elevation) / 90 * 60 ) * sin((azimuth*PI/180)-HALF_PI) ) + 63;
+  float x_want = ( ((90-elevation_want) / 90 * 60 ) * cos((azimuth_want*PI/180)-HALF_PI) ) + 63;
+  float y_want = ( ((90-elevation_want) / 90 * 60 ) * sin((azimuth_want*PI/180)-HALF_PI) ) + 63;
+  
+  tft.drawCircle(63,63,20,WHITE); // 60 deg
+  tft.drawCircle(63,63,40,WHITE); // 30 deg
+  tft.drawCircle(63,63,60,WHITE); // 0 deg
+  tft.drawFastVLine(63,3,121,WHITE); // y axis
+  tft.drawFastHLine(3,63,121,WHITE); // x axis
+  tft.fillCircle(x_sensor,y_sensor,5,GREEN); // position of sensor
+  tft.fillCircle(x_want,y_want,3,RED); // position from gpredict, overlays larger sensor circle
+
+  tft.writeFramebuffer();
+    
   int azdiffdir = 1;
   int eldiffdir = 1;
 
@@ -147,16 +188,68 @@ void loop() {
 }
 
 void connectBadge() {
-  WiFi.softAP(ssid, password);
+  int joystick = getJoystick();
+  char* ssid = "badge-rotor";
+  char* password = "";
+  
+  if(!joystick){
+    WiFi.mode(WIFI_AP);
+    WiFi.softAP(ssid, password);
+    WiFi.softAPConfig(IPAddress (10, 0, 0, 1), IPAddress(10, 0, 0, 1), IPAddress(255, 255, 255, 0));
+  } else {
+    File wifiConf = SPIFFS.open("/wifi.conf", "r");
 
-  delay(500);
-
-  tft.setCursor(2, 100);
-  tft.print("IP Address:");
-  tft.setCursor(2, 110);
-  tft.print(WiFi.softAPIP());
+    if (!wifiConf) {
+      tft.println("File not found!");
+      tft.println("Switching to SoftAP");
+      tft.writeFramebuffer();
+      WiFi.mode(WIFI_AP);
+      WiFi.softAP(ssid, password);
+      WiFi.softAPConfig(IPAddress (10, 0, 0, 1), IPAddress(10, 0, 0, 1), IPAddress(255, 255, 255, 0));
+      delay(1000);
+    } else {
+      String configString;
+      while (wifiConf.available()) {
+        configString += char(wifiConf.read());
+      }
+      wifiConf.close();
+      UrlDecode confParse(configString.c_str());
+      Serial.println(configString);
+      configString = String();
+      ssid = confParse.getKey("ssid");
+      password = confParse.getKey("pw");
+      
+      WiFi.mode(WIFI_STA);
+      WiFi.begin(ssid, password);
+      tft.setFont();
+      tft.setTextSize(1);
+      tft.setTextColor(WHITE);
+      tft.setCursor(0, 2);
+      tft.println("Connecting to:");
+      tft.println(ssid);
+      tft.writeFramebuffer();
+      while (WiFi.status() != WL_CONNECTED) {
+        delay(500);
+        tft.print(".");
+        tft.writeFramebuffer();
+      }
+    }
+  }
+  
+  tft.fillScreen(BLACK);
+  tft.setCursor(0, 110);
+  tft.print("IP:");
+  if(!joystick){
+   tft.println(WiFi.softAPIP());
+   tft.print("SoftAP: ");
+   tft.print(ssid);
+  } else {
+    tft.println(WiFi.localIP());
+    tft.print("STA: ");
+    tft.print(ssid);
+  }
   tft.writeFramebuffer();
-
+  delay(500);
   server.begin();
 }
 
@@ -209,4 +302,15 @@ void HSVtoRGB(int hue, int sat, int val, int colors[3]) {
     colors[1] = g;
     colors[2] = b;
   }
+}
+
+int getJoystick() {
+  uint16_t adc = analogRead(A0);
+  //Serial.println(adc);
+  if (adc < UP + OFFSET && adc > UP - OFFSET)             return 1;
+  else if (adc < DOWN + OFFSET && adc > DOWN - OFFSET)    return 2;
+  else if (adc < RIGHT + OFFSET && adc > RIGHT - OFFSET)  return 3;
+  else if (adc < LEFT + OFFSET && adc > LEFT - OFFSET)    return 4;
+  if (digitalRead(GPIO_BOOT) == 1) return 5;
+  return 0;
 }
